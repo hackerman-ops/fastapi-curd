@@ -1,8 +1,8 @@
 from sqlmodel import create_engine
-from test_scripts.models import SQLModel
+from models import SQLModel
 
-sqlite_file_name = "database.db"
-sqlite_url = f"sqlite:///{sqlite_file_name}"
+sqlite_file_name = "database1.db"
+sqlite_url = "postgresql+psycopg2://my_user:password123@172.30.167.162:5433/sql_model"
 
 engine = create_engine(sqlite_url, echo=True)
 

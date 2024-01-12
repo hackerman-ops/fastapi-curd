@@ -12,7 +12,7 @@ from typing import Optional
 from sqlmodel import Field, SQLModel, create_engine
 from pydantic import field_validator
 from sqlmodel.main import Undefined
-from db_manager.model_generator import create_model_from_db_model
+from test_scripts.pydantic_sqlalchemy import create_model_from_db_model
 
 
 class Choices(Enum):
@@ -37,8 +37,9 @@ class Company(SQLModel, table=True):
     email: str = Field(default=Undefined, unique=True)
     account: str = Field(default=Undefined, nullable=False, unique=True)
     number: int = Field(default=0, ge=0, le=100)
-    # test: Choices = Field(default=Choices.foo)
-    
+    test: Choices = Field(default=Choices.foo.value, nullable=False)
+    test1: Union[str, None] = Field(default=None, nullable=True)
+    test2: int = Field(default=2, nullable=False)
     @field_validator("email",mode="before")
     @classmethod
     def validate_email(cls, v):
@@ -50,14 +51,14 @@ class Company(SQLModel, table=True):
     @classmethod
     def validate_account(cls,v):
         return hash_password(v)
-
+    __table_args__ = {'extend_existing': True}
 
 class CompanyOrder(SQLModel, table=True):
     __tablename__ = "company_order"
     id: Optional[int] = Field(default=Undefined, primary_key=True)
     name: str = Field(default=Undefined, unique=True, max_length=10)
     money: int = Field(Float, gt=0, lt=1000, nullable=False)
-
+    __table_args__ = {'extend_existing': True}
 
 CompanyModelCreate = create_model_from_db_model(
     name_suffix="Create", model=Company, exclude=["id"]

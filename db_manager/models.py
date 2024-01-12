@@ -25,7 +25,7 @@ class Company(SQLModel, table=True):
     account: str = Field(default=Undefined, nullable=False, unique=True)
     number: int = Field(default=0, ge=0, le=100)
 
-    @field_validator("email")
+    @field_validator("email",mode="before")
     @classmethod
     def validate_email(cls, v):
         if not re.match(r"[^@]+@[^@]+\.[^@]+", v):
