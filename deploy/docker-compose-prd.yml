@@ -1,0 +1,37 @@
+version: '3'
+
+services:
+
+  prd-traefik:
+    image: traefik:v2.10
+    command:
+      - "--api.insecure=true"
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--entrypoints.web.address=:5050"
+    ports:
+      - "5058:5050"
+      - "8088:8080"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+
+  prd-backend:
+    env_file:
+      - .env
+    build:
+      context: .
+      dockerfile: Dockerfile
+#    container_name: backend
+    deploy:
+      replicas: 5
+    command: uvicorn main:app --host 0.0.0.0 --port 5050 --log-config log.yaml --workers 3
+    restart: on-failure
+    environment:
+      SERVICE_NAME: upload
+    volumes:
+      - ./:/code/
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.backend-upload.rule=PathPrefix(`/`)"
+      - "traefik.http.routers.backend-upload.entrypoints=web"
+      - "traefik.http.services.backend-upload.loadbalancer.server.port=5050"

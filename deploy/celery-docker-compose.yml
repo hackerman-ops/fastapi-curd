@@ -1,0 +1,33 @@
+version: '3'
+
+services:
+
+  celery-beat:
+    env_file:
+      - .env
+    build:
+      context: .
+      dockerfile: Dockerfile
+
+    environment:
+      SERVICE_NAME: master
+      C_FORCE_ROOT: "true"
+    container_name: celery-beat
+    command: celery -A celery_app.app beat --loglevel=info
+    restart: on-failure
+    volumes:
+      - ./:/code/
+
+  celery-worker:
+    env_file:
+      - .env
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: celery-worker
+    command: celery -A celery_app.app worker --loglevel=info
+    environment:
+      SERVICE_NAME: chat
+      C_FORCE_ROOT: "true"
+    volumes:
+      - ./:/code/

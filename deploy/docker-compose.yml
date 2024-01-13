@@ -1,0 +1,19 @@
+version: '3'
+
+services:
+
+  prd-backend:
+    env_file:
+      - .env
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: backend
+    command: uvicorn main:app --host 0.0.0.0 --port 5050 --log-config log.yaml --workers 3
+    restart: on-failure
+    environment:
+      SERVICE_NAME: upload
+    volumes:
+      - ./:/code/
+    ports:
+      - 5051:5050

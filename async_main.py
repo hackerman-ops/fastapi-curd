@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from fastapi.routing import APIRoute
-from async_company_curd import company_router
+from src.pymodels.async_company_curd import company_router
 
 
 def custom_generate_unique_id(route: APIRoute):
