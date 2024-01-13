@@ -26,3 +26,6 @@ starlette==0.32.0.post1
 typing_extensions==4.9.0
 uvicorn==0.25.0
 asyncpg==0.29.0
+wechatpy==1.8.18
+pydantic_settings
+python-keycloak==3.7.0
