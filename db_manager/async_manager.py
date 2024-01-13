@@ -2,9 +2,9 @@ from typing import Any, List
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from sqlmodel import select
-from async_db_manager.db_models import Company
-from async_db_manager.async_engine import engine
-from async_db_manager.async_engine import AsyncSession
+from db_manager.db_models import Company
+from db_manager.async_engine import engine
+from db_manager.async_engine import AsyncSession
 from sqlalchemy import delete, update
 
 class AsyncDBManager:
