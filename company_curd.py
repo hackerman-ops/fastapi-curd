@@ -1,6 +1,6 @@
 from pydantic import BaseModel
 from fastapi_curd_router import curd_router
-from test_scripts.models import Company, CompanyModelCreate, CompanyModelupdate
+from db_manager.models import Company, CompanyModelCreate, CompanyModelupdate
 from db_manager.engine import get_session
 from fastapi_curd_router.curd_types import DBSchemas, RouteBackgrounds, RouteDependencies
 

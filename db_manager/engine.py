@@ -1,9 +1,8 @@
 from sqlmodel import create_engine
 from sqlmodel import Session
-sqlite_file_name = "database.db"
-sqlite_url = f"sqlite:///{sqlite_file_name}"
+pg_url = "postgresql+psycopg2://my_user:password123@172.30.167.162:5433/sql_model"
 
-engine = create_engine(sqlite_url, echo=True, max_overflow=50,
+engine = create_engine(pg_url, echo=True, max_overflow=50,
     pool_size=100,
     pool_timeout=30,
     pool_recycle=3600,
