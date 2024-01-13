@@ -6,162 +6,49 @@ from fastapi import BackgroundTasks
 from fastapi import Depends, HTTPException
 from fastapi import Request
 from fastapi import Query
-from fastapi_pagination import Params
-from fastapi_pagination.bases import RawParams
 
 from fastapi_pagination.ext.sqlalchemy import paginate as fastapi_paginate
-from pydantic import BaseModel
-from sqlalchemy.sql.expression import func
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.declarative import DeclarativeMeta as Model
 from sqlmodel import select, update, delete
 from db_manager.engine import session
 from ._base import CRUDGenerator, NOT_FOUND
 from .curd_types import PYDANTIC_SCHEMA as SCHEMA
-from .curd_types import DBSchemas, RouteBackgrounds, RouteDependencies
+from .curd_types import (
+    DBSchemas,
+    RouteBackgrounds,
+    RouteDependencies,
+    QueryAllParamsModel,
+    CurrentUserPair,
+    CustomParams
+)
 from ._utils import (
-    QueryMaker,
+    QuerySqlGenerator,
     get_pk_type,
     create_filter_model_from_db_model_include_columns,
 )
+from sqlmodel.ext.asyncio.session import AsyncSession
 
 CALLABLE = Callable[..., Model]
 CALLABLE_LIST = Callable[..., List[Model]]
-
-
-def get_query_data(
-    filter_cfg, db_model, filter_data, sorter_data, default_query_kwargs: dict = None
-):
-    """
-
-    :param db_session:
-    :param sort:
-    :param filter_cfg:
-    [
-        {
-            "key": "activation_platform_en",
-            "condition": "==",
-        },
-        {
-            "key": "activation_platform_cn",
-            "condition": "contain",
-        },
-        {
-            "key": "snapshot_date",
-            "condition": "==",
-        },
-        {
-            "key": "start_time",
-            "condition": ">=",
-            "real_name": "snapshot_date",
-            "lbd": lambda v: timestamp_to_datetime(int(v / 1000))
-        },
-        {
-            "key": "end_time",
-            "condition": "<=",
-            "real_name": "snapshot_date",
-            "lbd": lambda v: timestamp_to_datetime(int(v / 1000))
-        }
-    ]
-    :param db_model:
-    :param filter_data:
-    {
-            "key1":"值1",
-            "key2":"值2",
-            "key3":"值3",
-        }
-    :param sorter_data:
-        {
-            "字段1":"ascend", //升序
-            "字段2":"descend" //降序
-        }
-    :param pk:
-    :return:
-    """
-    query = select(db_model)
-
-    qm = QueryMaker(query)
-    qm.add_filter(filter_data, db_model, default_query_kwargs)
-    if filter_cfg:
-        filter_keys = [filter["key"] for filter in filter_cfg]
-        qm.filter_keys = filter_keys
-        for filter in filter_cfg:
-            qm.cfg_filter(
-                key=filter.get("key"),
-                condition=filter.get("condition"),
-                model=filter.get("model", None),
-                real_name=filter.get("real_name", None),
-                lbd=filter.get("lbd", None),
-            )
-    qm.add_sorter(sorter_data, db_model)
-    query = qm.get_query()
-    return query
-
-
-def get_query_count(
-    filter_cfg, db_model, filter_data, default_query_kwargs: dict = None
-):
-    query = select(func.count("*")).select_from(db_model)
-
-    qm = QueryMaker(query)
-    qm.add_filter(filter_data, db_model, default_query_kwargs)
-    if filter_cfg:
-        filter_keys = [filter["key"] for filter in filter_cfg]
-        qm.filter_keys = filter_keys
-        for filter in filter_cfg:
-            qm.cfg_filter(
-                key=filter.get("key"),
-                condition=filter.get("condition"),
-                model=filter.get("model", None),
-                real_name=filter.get("real_name", None),
-                lbd=filter.get("lbd", None),
-            )
-    query = qm.get_query()
-    return query
-
-
-class SingleFilterCfg(BaseModel):
-    key: str
-    condition: str
-    real_name: None
-    lbd: Union[Callable, None]
-
-
-class FilterCfg(BaseModel):
-    filter_cfg: List[SingleFilterCfg] = []
-
-
-class CustomParams(Params):
-    page: int = Query(1, ge=1, description="Page number")
-    size: int = Query(50, ge=1, description="Page size")
-
-    def to_raw_params(self) -> RawParams:
-        return RawParams(
-            limit=self.size,
-            offset=self.size * (self.page - 1),
-        )
 
 
 class CRUDRouter(CRUDGenerator[SCHEMA]):
     def __init__(
         self,
         schemas: DBSchemas,
-        db: session,
+        db: AsyncSession,
         route_dependencies: RouteDependencies,
         route_backgrounds: RouteBackgrounds,
-        filter_cfg: List[SingleFilterCfg] = None,
+        query_params: QueryAllParamsModel,
         prefix: Optional[str] = None,
         tags: Optional[List[str]] = None,
-        default_query_kwargs: Optional[dict] = None,
-        default_sort_kwargs: Optional[dict] = None,
-        check_create_duplicate: Optional[list] = None,
-        current_user_pair: dict = None,
+        current_user_pair: CurrentUserPair = None,
         **kwargs: Any
     ) -> None:
-        self.user_model = current_user_pair.get("user_model")
-        auth_info_func = current_user_pair.get("auth_info_func")
+        self.user_model = current_user_pair.user_model
+        auth_info_func = current_user_pair.auth_info_func
         self.auth_info = Depends(auth_info_func) if auth_info_func else Depends()
-
         db_model = schemas.db_schema
         self.db_model = db_model
         self.schema = db_model
@@ -171,32 +58,36 @@ class CRUDRouter(CRUDGenerator[SCHEMA]):
         self.route_backgrounds = route_backgrounds
         self.pk: str = db_model.__table__.primary_key.columns.keys()[0]
         self.pk_type: type = get_pk_type(db_model, self.pk)
-        self.filter_cfg = filter_cfg
+        self.filter_cfg = query_params.filter_cfg
         self.filter_model = None
-        if filter_cfg:
-            mapping_list = []
-            for co in filter_cfg:
-                real_name = co.get("real_name")
-                mapping = {
-                    "new_key": co["key"],
-                    "db_key": co["real_name"] if real_name else co["key"],
-                }
-                mapping_list.append(mapping)
-            self.filter_model = create_filter_model_from_db_model_include_columns(
-                name_suffix="create",
-                model=self.schema,
-                include=mapping_list,
-                is_update=True,
-            )
-        self.default_query_kwargs = default_query_kwargs
-        self.default_sort_kwargs = default_sort_kwargs
-        self.check_create_duplicate = check_create_duplicate
+        self.generate_filter_model()
+        self.default_query_kwargs = query_params.default_query_kwargs
+        self.default_sort_kwargs = query_params.default_sort_kwargs or {}
         super().__init__(
             schemas=schemas,
             prefix=prefix or db_model.__tablename__,
             tags=tags,
             route_dependencies=route_dependencies,
             **kwargs
+        )
+
+    # 生成查询参数
+    def generate_filter_model(self):
+        if not self.filter_cfg:
+            return
+        mapping_list = []
+        for co in self.filter_cfg:
+            real_name = co.real_name
+            mapping = {
+                "new_key": co.key,
+                "db_key": co.real_name if real_name else co.key,
+            }
+            mapping_list.append(mapping)
+        self.filter_model = create_filter_model_from_db_model_include_columns(
+            name_suffix="Create",
+            model=self.schema,
+            include=mapping_list,
+            is_update=True,
         )
 
     def _get_all(self, *args: Any, **kwargs: Any) -> CALLABLE_LIST:
@@ -206,16 +97,19 @@ class CRUDRouter(CRUDGenerator[SCHEMA]):
             sorter_data: Dict[str, str] = {},
             db: session = Depends(self.db_func),
         ) -> List[Model]:
-            sorter_data.update(self.default_sort_kwargs)
-            db_models: List[Model] = get_query_data(
-                filter_cfg=self.filter_cfg,
-                db_model=self.db_model,
-                filter_data=filter_data,
-                sorter_data=sorter_data,
-                default_query_kwargs=self.default_query_kwargs,
+            sql_generator = QuerySqlGenerator(
+                model=self.schema,
+                user_query_data=filter_data.model_dump() if filter_data else None,
+                default_query_data=self.default_query_kwargs,
+                user_sort_data=sorter_data,
+                default_sort_data=self.default_sort_kwargs,
+                filter_setting=self.filter_cfg,
             )
+            sql_generator.generate_query_record_sql()
+            sql = sql_generator.query_sql
+
             page_data = fastapi_paginate(
-                query=db_models,
+                query=sql,
                 params=pagination,  # type: ignore
                 conn=db,  # type: ignore
             )  # type: ignore
@@ -253,7 +147,7 @@ class CRUDRouter(CRUDGenerator[SCHEMA]):
         ):
             self.create_schema.model_validate(model)
             create_data = model.model_dump(exclude_unset=True, exclude_none=True)
-            
+
             db_model = self.db_model(**create_data)
             print("======start=====")
             try:
@@ -365,13 +259,17 @@ class CRUDRouter(CRUDGenerator[SCHEMA]):
             filter_data: self.filter_model = None,
             db: session = Depends(self.db_func),
         ) -> List[Model]:
-            db_models: List[Model] = get_query_count(
-                filter_cfg=self.filter_cfg,
-                db_model=self.db_model,
-                filter_data=filter_data,
-                default_query_kwargs=self.default_query_kwargs,
+            sql_generator = QuerySqlGenerator(
+                model=self.schema,
+                user_query_data=filter_data.model_dump() if filter_data else None,
+                default_query_data=self.default_query_kwargs,
+                user_sort_data={},
+                default_sort_data={},
+                filter_setting=self.filter_cfg,
             )
-            count = db.exec(db_models).one()
+            sql_generator.generate_count_sql()
+            sql = sql_generator.query_sql
+            count = db.exec(sql).one()
 
             db.close()
             return {"data": count}  # type: ignore

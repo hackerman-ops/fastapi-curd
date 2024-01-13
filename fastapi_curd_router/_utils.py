@@ -3,10 +3,10 @@ from typing import List, Optional, Type, Any
 
 from fastapi import Depends, HTTPException
 from pydantic import BaseModel, create_model
-
+from sqlalchemy.sql.expression import func
 from .curd_types import T, PAGINATION, PYDANTIC_SCHEMA
-
-
+from .curd_types import FilterModel
+from sqlmodel import select
 
 
 def create_filter_model_from_db_model_include_columns(
@@ -44,7 +44,7 @@ def create_filter_model_from_db_model_include_columns(
         new_fields[new_key] = extra_field[db_key]
 
     pydantic_model = create_model(
-        f"{model.__name__}_{name_suffix}",
+        f"{model.__name__}{name_suffix}",
         __base__=BaseModel,
         __validators__=__validators__,
         **new_fields,
@@ -53,9 +53,12 @@ def create_filter_model_from_db_model_include_columns(
         new_key = k["new_key"]
         db_key = k["db_key"]
         if hasattr(model, f"validate_{db_key}"):
-            setattr(pydantic_model, f"validate_{new_key}", getattr(model, f"validate_{db_key}"))
+            setattr(
+                pydantic_model,
+                f"validate_{new_key}",
+                getattr(model, f"validate_{db_key}"),
+            )
     return pydantic_model
-
 
 
 class AttrDict(dict):  # type: ignore
@@ -129,158 +132,108 @@ def pagination_factory(max_limit: Optional[int] = None) -> Any:
     return Depends(pagination)
 
 
-class QueryMaker:
-    """
-    配合前端框架的数据结构，组装查询、排序条件
-    """
 
-    def __init__(self, queryset):
-        self.queryset = queryset  # 初始的queryset
 
+class QuerySqlGenerator:
+    def __init__(
+        self,
+        model,
+        user_query_data: dict = None,
+        default_query_data: dict = None,
+        filter_setting: list[FilterModel] = None,
+        user_sort_data: dict = None,
+        default_sort_data: dict = None,
+    ) -> None:
+        """生成sql
+
+        Args:
+            user_query_data (dict): 用户输入查询参数
+            default_query_data (dict): 默认查询参数
+            filter_setting (list): 代码限制查询字段
+            user_sort_data (dict): 用户排序参数
+            default_sort_data (dict): 默认排序参数
         """
-        filter_cfg结构：
-        {
-            "字段名":{
-                "value":字段值,
-                "model":字段model,
-                "condition":筛选条件, //等于:==,小于<,小于等于<=,大于>,大于等于>=,不等于!=,属于in,不属于~in,包含contain
-                "real_name":真实字段名,
-                "lambda":改变v的lambda
-            }
-        }
+        self.model = model
+        self.db_keys = model.model_fields.keys()
+        # 有可能有非法字段，需要过滤
+        # 输入字段和setting字段对比
+        self.user_query_data = user_query_data or {}
+        if default_query_data:
+            self.user_query_data.update(default_query_data)
 
-        sorter_cfg结构：
-        {
-            "字段名":{
-                "condition":"ascend",
-                "model":model,
-                "real_name":真实字段名
-            }
-        }
-        """
-        self.filter_cfg = dict()  # 过滤参数
-        self.sorter_cfg = dict()  # 排序参数
-        self.filter_keys = []  # 合法的filter字段名，不在其中的会被过滤，为空则不校验
+        # 有可能不是数据库字段，和数据库字段对比
 
-    def add_filter(self, filter_data, default_model, default_query_kwargs):
-        """
-        添加过滤参数，如果已有，则覆盖
-        filter_data:{
-            "key1":"值1",
-            "key2":"值2",
-            "key3":"值3",
-        }
-        default_model:默认的model
-        """
-        if filter_data:
-            if isinstance(filter_data, str):
-                filter_data = json.loads(filter_data)
-        else:
-            filter_data = {}
-        if default_query_kwargs:
-            filter_data.update(default_query_kwargs)
-        for k, v in filter_data.items():
-            # 过滤非法字段
-            if self.filter_keys:
-                if k not in self.filter_keys:
-                    continue
-            self.filter_cfg[k] = {
-                "value": v,
-                "model": default_model,
-                "condition": "==",
-                "real_name": k,
-                "lambda": None,
-            }
+        self.filter_setting = filter_setting or []
 
-    def add_sorter(self, sorter_data, default_model):
-        """
-        添加排序参数
-        sorter_data:{
-            "字段1":"ascend", //升序
-            "字段2":"descend" //降序
-        }
-        """
-        if not sorter_data:
-            return
-        if isinstance(sorter_data, str):
-            sorter_data = json.loads(sorter_data)
+        # 和数据库字段对比
+        self.user_sort_data = user_sort_data or {}
+        if default_sort_data:
+            self.user_sort_data.update(default_sort_data)
+        self.legal_filter_setting = {}
+        
+        # 过滤掉不属于数据库字段的配置
 
-        for k, v in sorter_data.items():
-            self.sorter_cfg[k] = {
-                "condition": v,
-                "model": default_model,
-                "real_name": k,
-            }
+        self.remove_illegal_filter_key()
+        # 包含自定义key
+        self.legal_filter_setting_keys = list(self.legal_filter_setting.keys())
 
-    def cfg_filter(self, key, condition=None, model=None, real_name=None, lbd=None):
-        """
-        特殊配置需要定制的查询条件，不能配置不存在的key
-        """
-        if condition is None and model is None and real_name is None and lbd is None:
-            return
+    def remove_illegal_filter_key(self):
+        """删除非法的查询参数"""
+        # 过滤掉不属于数据库字段的配置
+        for k in self.filter_setting:
+            if k.key in self.db_keys and k.real_name == k.key:
+                self.legal_filter_setting[k.key] = k
+            if k.key not in self.db_keys and k.real_name in self.db_keys:
+                self.legal_filter_setting[k.key] = k
+            
 
-        if condition and condition not in [
-            "==",
-            "<",
-            ">",
-            "<=",
-            ">=",
-            "!=",
-            "in",
-            "~in",
-            "contain",
-        ]:
-            return
+    def remove_user_illegal_filter_key(self):
+        """删除非法的查询参数"""
+        for k in list(self.user_query_data.keys()):
+            if k not in self.legal_filter_setting_keys:
+                self.user_query_data.pop(k, True)
 
-        if key not in self.filter_cfg:
-            return
+    def remove_user_illegal_sort_key(self):
+        """删除非法的排序参数"""
+        for k,v in self.user_sort_data.items():
+            if k not in self.db_keys:
+                self.user_sort_data.pop(k, True)
+            if v not in ['asc', 'desc']:
+                self.user_sort_data.pop(k, True)
 
-        if condition:
-            self.filter_cfg[key]["condition"] = condition
+    def get_base_query(self):
+        """获取基础查询"""
+        self.base_query = select(self.model)
 
-        if model:
-            self.filter_cfg[key]["model"] = model
+    def generate_query_record_sql(self):
+        """生成查询sql"""
+        # 去掉不合法字段
+        self.remove_user_illegal_filter_key()
+        self.remove_user_illegal_sort_key()
+        self.get_base_query()
+        self.generate_filter_sql()
+        self.generate_sort_sql()
 
-        if real_name:
-            self.filter_cfg[key]["real_name"] = real_name
+    def generate_count_sql(self):
+        self.remove_user_illegal_filter_key()
+        self.base_query = select(func.count("*")).select_from(self.model)
+        self.generate_filter_sql()
+        
+    def generate_filter_sql(self):
+        """生成过滤条件sql"""
 
-        if lbd:
-            self.filter_cfg[key]["lambda"] = lbd
-
-    def cfg_sorter(self, key, condition=None, model=None, real_name=None):
-        """
-        特殊配置需要定制的排序条件，不能配置不存在的key
-        """
-        if condition is None and model is None and real_name is None:
-            return
-
-        if condition and condition not in ["ascend", "descend"]:
-            return
-
-        if key not in self.sorter_cfg:
-            return
-
-        if condition:
-            self.sorter_cfg[key]["condition"] = condition
-
-        if model:
-            self.sorter_cfg[key]["model"] = model
-
-        if real_name:
-            self.sorter_cfg[key]["real_name"] = real_name
-
-    def get_query(self):
-        """
-        组装query
-        """
         conditions = []
-        for k, v in self.filter_cfg.items():
-            model = v["model"]
-            condition = v["condition"]
-            value = v["value"]
-            k = v["real_name"]
-            if v["lambda"]:
-                value = v["lambda"](value)
+        model = self.model
+        for k, v in self.user_query_data.items():
+            
+            k_filter_setting:FilterModel = self.legal_filter_setting[k]
+            
+            condition = k_filter_setting.condition
+            value = v
+            if k_filter_setting.real_name:
+                k = k_filter_setting.real_name
+            if k_filter_setting.lbd:
+                value = k_filter_setting.lbd(value)
             if condition == "==":
                 conditions.append(getattr(model, k) == value)
             elif condition == "!=":
@@ -299,17 +252,20 @@ class QueryMaker:
                 conditions.append(getattr(model, k).notin_(value))
             elif condition == "contain":
                 conditions.append(getattr(model, k).contains(value))
-        query = self.queryset.where(*conditions)
-
+        self.base_query = self.base_query.where(*conditions)
+        
+    def generate_sort_sql(self):
+        """生成排序条件sql"""
+        
         sort_conditions = []
-        for k, v in self.sorter_cfg.items():
-            model = v["model"]
-            condition = v["condition"]
-            k = v["real_name"]
+        model = self.model
+        for k, v in self.user_sort_data.items():
+            condition = v
             if condition == "ascend":
                 sort_conditions.append(getattr(model, k).asc())
             else:
                 sort_conditions.append(getattr(model, k).desc())
-        query = query.order_by(*sort_conditions)
-
-        return query
+        self.base_query = self.base_query.order_by(*sort_conditions)
+    @property
+    def query_sql(self):
+        return self.base_query

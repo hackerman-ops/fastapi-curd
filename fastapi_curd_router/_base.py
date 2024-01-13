@@ -3,19 +3,14 @@ from typing import Any, Callable, Generic, List, Optional, Type, Union
 
 from fastapi import APIRouter, HTTPException
 from fastapi.types import DecoratedCallable
-from pydantic import BaseModel, create_model
+from pydantic import create_model
 from fastapi_pagination import Page
 
 from .curd_types import T, DEPENDENCIES, Sequence
-from ._utils import pagination_factory, schema_factory
-from .curd_types import DBSchemas, RouteDependencies
+from ._utils import schema_factory
+from .curd_types import DBSchemas, RouteDependencies, ResponseStruct
 NOT_FOUND = HTTPException(404, "Item not found")
 
-
-class ResponseStruct(BaseModel):
-    code: int = 200
-    data: Any
-    message: str = "success"
 
 
 class CRUDGenerator(Generic[T], APIRouter, ABC):
