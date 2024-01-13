@@ -1,10 +1,9 @@
 from typing import Any, List
 
 from sqlmodel import select, Session
-from test_scripts.models import Company
-from test_scripts.engine import engine
+from db_manager.db_models import Company
+from db_manager.engine import engine
 from sqlalchemy import delete, update
-from test_scripts.engine import engine
 
 class DBManager:
     def __init__(self, engine):

@@ -1,7 +1,7 @@
 from pydantic import BaseModel
 from fastapi_curd_router import curd_router
 from db_manager.db_models import Company
-from db_manager.engine import get_session
+from async_db_manager.engine import get_session
 from fastapi_curd_router.curd_types import DBSchemas, RouteBackgrounds, RouteDependencies
 from api_model_manager.api_models import CompanyModelCreate,CompanyModelupdate
 class User(BaseModel):

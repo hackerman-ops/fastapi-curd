@@ -3,15 +3,14 @@ from enum import Enum
 import re
 from typing import Union
 
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel
 from sqlalchemy import Float, text
 from sqlmodel import Field, Relationship, SQLModel
 from typing import Optional
 
-from sqlmodel import Field, SQLModel, create_engine
+from sqlmodel import Field, SQLModel
 from pydantic import field_validator
 from sqlmodel.main import Undefined
-from db_manager.model_generator import create_model_from_db_model
 import hashlib
 
 def hash_password(password: str) -> str:
@@ -72,9 +71,3 @@ class CompanyOrder(SQLModel, table=True):
     name: str = Field(default=Undefined, unique=True, max_length=10)
     money: int = Field(Float, gt=0, lt=1000, nullable=False)
 
-CompanyModelCreate = create_model_from_db_model(
-    name_suffix="Create", model=Company, exclude=["id"]
-)
-CompanyModelupdate = create_model_from_db_model(
-    name_suffix="Update", model=Company, exclude=["id"], is_update=True
-)
