@@ -31,7 +31,7 @@ class CRUDRouter(CRUDGenerator[SCHEMA]):
     def __init__(
         self,
         schemas: DBSchemas,
-        db: AsyncSession,
+        session: AsyncSession,
         route_dependencies: RouteDependencies,
         route_backgrounds: RouteBackgrounds,
         query_params: QueryAllParamsModel,
@@ -48,7 +48,7 @@ class CRUDRouter(CRUDGenerator[SCHEMA]):
         self.schema = db_model
         self.create_schema = schemas.create_schema
         self.update_schema = schemas.update_schema
-        self.db_func = db
+        self.session = session
         self.route_backgrounds = route_backgrounds
         self.pk: str = db_model.__table__.primary_key.columns.keys()[0]
         self.pk_type: type = get_pk_type(db_model, self.pk)
@@ -88,7 +88,7 @@ class CRUDRouter(CRUDGenerator[SCHEMA]):
             filter_data: self.filter_model = None,
             pagination: CustomParams = Depends(),
             sorter_data: Dict[str, Literal["ascend", "deascend"]] = {},
-            db: AsyncSession = Depends(self.db_func),
+            db: AsyncSession = Depends(self.session),
         ) -> List[Model]:
             sql_generator = QuerySqlGenerator(
                 model=self.schema,
@@ -117,7 +117,7 @@ class CRUDRouter(CRUDGenerator[SCHEMA]):
 
     def _get_one(self, *args: Any, **kwargs: Any) -> CALLABLE:
         async def route(
-            item_id: self.pk_type, db: AsyncSession = Depends(self.db_func)  # type: ignore
+            item_id: self.pk_type, db: AsyncSession = Depends(self.session)  # type: ignore
         ):
             sql = select(self.db_model).where(self.db_model.id == item_id)
             result = await db.exec(sql)
@@ -134,7 +134,7 @@ class CRUDRouter(CRUDGenerator[SCHEMA]):
             model: self.create_schema,  # type: ignore
             request: Request,
             background_tasks: BackgroundTasks,
-            db: AsyncSession = Depends(self.db_func),
+            db: AsyncSession = Depends(self.session),
             current_user: self.user_model = self.auth_info,
         ):
             self.create_schema.model_validate(model)
@@ -171,7 +171,7 @@ class CRUDRouter(CRUDGenerator[SCHEMA]):
             model: self.update_schema,  # type: ignore
             request: Request,
             background_tasks: BackgroundTasks,
-            db: AsyncSession = Depends(self.db_func),
+            db: AsyncSession = Depends(self.session),
             current_user: self.user_model = self.auth_info,
         ):
             sql = (
@@ -200,7 +200,7 @@ class CRUDRouter(CRUDGenerator[SCHEMA]):
             item_id: self.pk_type,  # type: ignore
             request: Request,
             background_tasks: BackgroundTasks,
-            db: AsyncSession = Depends(self.db_func),
+            db: AsyncSession = Depends(self.session),
             current_user: self.user_model = self.auth_info,
         ):
             sql = update(self.db_model).filter_by(id=item_id).values(deleted=True)
@@ -224,7 +224,7 @@ class CRUDRouter(CRUDGenerator[SCHEMA]):
             request: Request,
             background_tasks: BackgroundTasks,
             current_user: self.user_model = self.auth_info,
-            db: AsyncSession = Depends(self.db_func),  # type: ignore
+            db: AsyncSession = Depends(self.session),  # type: ignore
         ):
             sql = select(self.db_model).filter_by(id=item_id)
             result = await db.exec(sql)
@@ -248,7 +248,7 @@ class CRUDRouter(CRUDGenerator[SCHEMA]):
     def _count(self, *args: Any, **kwargs: Any) -> CALLABLE:
         async def route(
             filter_data: self.filter_model = None,
-            db: AsyncSession = Depends(self.db_func),
+            db: AsyncSession = Depends(self.session),
         ):
 
             sql_generator = QuerySqlGenerator(
@@ -271,7 +271,7 @@ class CRUDRouter(CRUDGenerator[SCHEMA]):
         async def route(
             item_id: self.pk_type,  # type: ignore
             status: Literal[False, True],
-            db: AsyncSession = Depends(self.db_func),
+            db: AsyncSession = Depends(self.session),
         ):
             sql = update(self.db_model).filter_by(id=item_id).values(disabled=status)
             await db.exec(sql)

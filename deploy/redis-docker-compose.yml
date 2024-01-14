@@ -1,0 +1,7 @@
+
+services:
+  redis.rpc:
+    container_name: micro-redis
+    image: redis:latest
+    ports:
+      - 6379:6379

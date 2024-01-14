@@ -29,3 +29,5 @@ asyncpg==0.29.0
 wechatpy==1.8.18
 pydantic_settings
 python-keycloak==3.7.0
+arq==0.25.0
+uvloop==0.19.0
