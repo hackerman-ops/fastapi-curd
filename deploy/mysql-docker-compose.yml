@@ -5,8 +5,10 @@ services:
     container_name: micro-mysql
     image: mysql:8.0
     ports:
-      - 3306:3306
+      - 3006:3306
     volumes:
-      - ./mysql_data:/var/lib/mysql
+      - /home/hacker/Downloads/mysql_data:/var/lib/mysql
+      - /home/ecs-assist-user/yiyun/datadb/mysql_conf:/etc/mysql/conf.d
     environment:
       - MYSQL_ROOT_PASSWORD=root
+      - TZ=Asia/Shanghai
