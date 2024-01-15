@@ -15,10 +15,10 @@ from fastapi_curd_router.async_curd_router import QueryAllParamsModel
 from fastapi_curd_router.async_curd_router import CurrentUserPair
 
 
-
 class User(BaseModel):
     id: int
     name: str
+
 
 def get_current_user():
     pass

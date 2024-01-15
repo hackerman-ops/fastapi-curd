@@ -19,7 +19,6 @@ class User(BaseModel):
     name: str
 
 
-
 def get_current_user():
     pass
 

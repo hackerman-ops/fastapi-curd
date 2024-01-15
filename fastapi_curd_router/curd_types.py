@@ -2,7 +2,7 @@ from typing import Dict, Type, TypeVar, Optional, Sequence, Union
 
 from fastapi.params import Depends
 from pydantic import BaseModel
-from typing import Any, Callable, Dict, List, Type, Optional, Union, Literal
+from typing import Any, Callable, Dict, List, Type, Optional, Union
 from annotated_types import T
 
 from fastapi import Depends
@@ -46,11 +46,11 @@ T = TypeVar("T", bound=BaseModel)
 DEPENDENCIES = Optional[Sequence[Depends]]
 
 
-
 class DBSchemas(BaseModel):
     db_schema: Type[T]
     create_schema: Type[T] = None
     update_schema: Type[T] = None
+
 
 class RouteDependencies(BaseModel):
     """dependencies list
@@ -58,6 +58,7 @@ class RouteDependencies(BaseModel):
     Args:
         BaseModel (_type_): _description_
     """
+
     common_dependencies: Union[bool, list] = True
     get_all_route: Union[bool, list] = True
     get_one_route: Union[bool, list] = True
@@ -75,14 +76,13 @@ class RouteBackgrounds(BaseModel):
     Args:
         BaseModel (_type_): _description_
     """
+
     get_all_route: Union[bool, list] = False
     get_one_route: Union[bool, list] = False
     create_route: Union[bool, list] = False
     update_route: Union[bool, list] = False
     delete_one_route: Union[bool, list] = False
     tag_delete_one_route: Union[bool, list] = False
-    
-
 
 
 class CustomParams(Params):
@@ -95,10 +95,12 @@ class CustomParams(Params):
             offset=self.size * (self.page - 1),
         )
 
+
 class QueryAllParamsModel(BaseModel):
-    filter_cfg: List[FilterModel] = None,
-    default_query_kwargs: Optional[dict] = None,
-    default_sort_kwargs: Optional[dict] = None,
+    filter_cfg: List[FilterModel] = (None,)
+    default_query_kwargs: Optional[dict] = (None,)
+    default_sort_kwargs: Optional[dict] = (None,)
+
 
 class CurrentUserPair(BaseModel):
     user_model: Type[T]

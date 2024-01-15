@@ -6,7 +6,6 @@
 # 创建角色
 # admin-cli service account role 关联角色
 
-import json
 import pprint
 import random
 

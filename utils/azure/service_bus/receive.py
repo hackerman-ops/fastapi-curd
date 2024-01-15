@@ -9,7 +9,6 @@
 Example to show receiving batch messages from a Service Bus Queue asynchronously.
 """
 
-import os
 import asyncio
 from azure.servicebus.aio import ServiceBusClient
 

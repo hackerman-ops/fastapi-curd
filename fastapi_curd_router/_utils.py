@@ -1,4 +1,3 @@
-import json
 from typing import List, Optional, Type, Any
 
 from fastapi import Depends, HTTPException
@@ -132,8 +131,6 @@ def pagination_factory(max_limit: Optional[int] = None) -> Any:
     return Depends(pagination)
 
 
-
-
 class QuerySqlGenerator:
     def __init__(
         self,
@@ -170,7 +167,7 @@ class QuerySqlGenerator:
         if default_sort_data:
             self.user_sort_data.update(default_sort_data)
         self.legal_filter_setting = {}
-        
+
         # 过滤掉不属于数据库字段的配置
 
         self.remove_illegal_filter_key()
@@ -185,7 +182,6 @@ class QuerySqlGenerator:
                 self.legal_filter_setting[k.key] = k
             if k.key not in self.db_keys and k.real_name in self.db_keys:
                 self.legal_filter_setting[k.key] = k
-            
 
     def remove_user_illegal_filter_key(self):
         """删除非法的查询参数"""
@@ -195,10 +191,10 @@ class QuerySqlGenerator:
 
     def remove_user_illegal_sort_key(self):
         """删除非法的排序参数"""
-        for k,v in self.user_sort_data.items():
+        for k, v in self.user_sort_data.items():
             if k not in self.db_keys:
                 self.user_sort_data.pop(k, True)
-            if v not in ['asc', 'desc']:
+            if v not in ["asc", "desc"]:
                 self.user_sort_data.pop(k, True)
 
     def get_base_query(self):
@@ -218,16 +214,15 @@ class QuerySqlGenerator:
         self.remove_user_illegal_filter_key()
         self.base_query = select(func.count("*")).select_from(self.model)
         self.generate_filter_sql()
-        
+
     def generate_filter_sql(self):
         """生成过滤条件sql"""
 
         conditions = []
         model = self.model
         for k, v in self.user_query_data.items():
-            
-            k_filter_setting:FilterModel = self.legal_filter_setting[k]
-            
+            k_filter_setting: FilterModel = self.legal_filter_setting[k]
+
             condition = k_filter_setting.condition
             value = v
             if k_filter_setting.real_name:
@@ -253,10 +248,10 @@ class QuerySqlGenerator:
             elif condition == "contain":
                 conditions.append(getattr(model, k).contains(value))
         self.base_query = self.base_query.where(*conditions)
-        
+
     def generate_sort_sql(self):
         """生成排序条件sql"""
-        
+
         sort_conditions = []
         model = self.model
         for k, v in self.user_sort_data.items():
@@ -266,6 +261,7 @@ class QuerySqlGenerator:
             else:
                 sort_conditions.append(getattr(model, k).desc())
         self.base_query = self.base_query.order_by(*sort_conditions)
+
     @property
     def query_sql(self):
         return self.base_query

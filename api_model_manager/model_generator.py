@@ -1,13 +1,9 @@
 from typing import Container, Type, List
 
 from pydantic import BaseModel
-from pydantic.fields import FieldInfo
-from pydantic_core import PydanticUndefined
 
 from pydantic import create_model
-from pydantic.fields import PydanticUndefined
 from pydantic import field_validator
-
 
 
 def create_model_from_db_model(
@@ -40,7 +36,7 @@ def create_model_from_db_model(
         new_field = (annotation, v)
         if hasattr(model, f"validate_{k}"):
             f = getattr(model, f"validate_{k}").__func__
-            validator_function = field_validator(k,mode="before")(f)
+            validator_function = field_validator(k, mode="before")(f)
             __validators__[f"validate_{k}"] = validator_function
 
         extra_field[k] = new_field
@@ -54,5 +50,3 @@ def create_model_from_db_model(
         **extra_field,
     )
     return pydantic_model
-
-

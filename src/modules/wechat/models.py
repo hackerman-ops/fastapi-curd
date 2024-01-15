@@ -20,7 +20,6 @@ class UserIdentity(BaseModel):
 
 
 class NewUserPlatformAuthModel(BaseModel):
-
     platform: str
     manage_account_id: int
     open_id: str
@@ -44,18 +43,15 @@ class NewUserModel(NewUserRequestModel):
 
 
 class UserLoginRequestModel(BaseModel):
-
     employee_number: str
     password: str
 
 
 class WechatMiniLoginModel(BaseModel):
-
     code: str
 
 
 class WechatLoginModel(BaseModel):
-
     code: str
     scene_code: str
 
@@ -91,12 +87,7 @@ CreateManageAccountModel = sqlalchemy_to_pydantic(
 
 UpdateManageAccountModel = sqlalchemy_model_update_to_pydantic(
     ManageAccount,
-    exclude=[
-        "id",
-        "t_created",
-        "t_modified",
-        "password"
-    ],
+    exclude=["id", "t_created", "t_modified", "password"],
 )
 
 
@@ -149,7 +140,10 @@ ManageAccountStewardModel = sqlalchemy_to_pydantic(
     ],
 )
 
-ManageAccountModelToken = sqlalchemy_to_pydantic(ManageAccount, exclude=["password","t_created", "t_modified"])
+ManageAccountModelToken = sqlalchemy_to_pydantic(
+    ManageAccount, exclude=["password", "t_created", "t_modified"]
+)
+
 
 class Token(BaseModel):
     user_info: ManageAccountModelToken = None
@@ -164,7 +158,6 @@ class ModifyUserInfoModel(BaseModel):
     old_password: str
     new_password: str
     confirming_password: str
-
 
 
 NoAuthManageAccountStewardModel = sqlalchemy_to_pydantic(

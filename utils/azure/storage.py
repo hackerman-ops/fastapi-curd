@@ -2,7 +2,6 @@
 
 from azure.storage.blob.aio import BlobServiceClient
 from conf.settings import backend_settings
-import asyncio
 
 
 class AzureBlobStorage:

@@ -1,7 +1,8 @@
 from utils.mq_option.rabbitmq import RabbitMQ
 
 mq_mapping = {"rabbitmq": RabbitMQ}
-import logging 
+import logging
+
 logger = logging.get_logger(__name__)
 
 

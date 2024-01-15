@@ -1,4 +1,4 @@
-from typing import Any, Optional, Union
+from typing import Any, Optional
 
 from pydantic import BaseModel
 
@@ -28,4 +28,3 @@ class UserIdentity(BaseModel):
     user_name: str
     company_name: str
     company_id: int
-

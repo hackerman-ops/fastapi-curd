@@ -1,5 +1,5 @@
 # 小程序扫码登录绑定
-    
+
 import base64
 import json
 import random
@@ -37,6 +37,7 @@ from utils.storage.redis_cache import cache
 from sql_model.database import DBApi
 from utils.others.time_handler import time_util
 from logging import getLogger
+
 logger = getLogger(__name__)
 
 wechat_router = APIRouter()

@@ -2,8 +2,6 @@
 Example to show sending message(s) to a Service Bus Topic asynchronously.
 """
 
-import os
-import asyncio
 
 CONNECTION_STR = "Endpoint=sb://asb-mtw-sea-np-core.servicebus.windows.net/;SharedAccessKeyName=RootManageSharedAccessKey;SharedAccessKey=rvLyI/aMxWaliXxIhGMmq3Q9HUglNFDMN+ASbHb6Ieg="
 TOPIC_NAME = "egst-mtw-global-upload-trigger"

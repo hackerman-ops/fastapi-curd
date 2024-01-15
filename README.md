@@ -14,3 +14,5 @@ alembic downgrade head
  celery -A celery_app.app worker --loglevel=info
 celery -A celery_app.app beat --loglevel=info
 ```
+
+autoflake  --remove-all-unused-imports -i -r .

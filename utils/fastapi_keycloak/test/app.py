@@ -1,7 +1,6 @@
 import random
 from typing import List, Optional
 
-import uvicorn
 from fastapi import Depends, Query, Body
 
 from pydantic import SecretStr
@@ -12,7 +11,6 @@ from utils.fastapi_keycloak import (
     KeycloakUser,
     OIDCUser,
     UsernamePassword,
-    KeycloakError,
 )
 
 idp = FastAPIKeycloak(

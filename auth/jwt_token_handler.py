@@ -4,7 +4,7 @@ from migrations.models import Account
 from migrations.models import Company
 from conf.base_model import UserIdentity
 from conf.settings import backend_settings
-from fastapi import Depends, HTTPException, status
+from fastapi import HTTPException, status
 from logging import get_logger
 
 logger = get_logger(__name__)

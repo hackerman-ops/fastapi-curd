@@ -1,11 +1,9 @@
 import traceback
-from typing import Any, Callable, Dict, List, Type, Optional, Union
-from annotated_types import T
+from typing import Any, Callable, Dict, List, Optional
 
 from fastapi import BackgroundTasks
 from fastapi import Depends, HTTPException
 from fastapi import Request
-from fastapi import Query
 
 from fastapi_pagination.ext.sqlalchemy import paginate as fastapi_paginate
 from sqlalchemy.exc import IntegrityError
@@ -20,7 +18,7 @@ from .curd_types import (
     RouteDependencies,
     QueryAllParamsModel,
     CurrentUserPair,
-    CustomParams
+    CustomParams,
 )
 from ._utils import (
     QuerySqlGenerator,
@@ -118,8 +116,7 @@ class CRUDRouter(CRUDGenerator[SCHEMA]):
                 for item in page_data.items
             ]
             page_data.items = data_list
-            db.close()
-            return {"data": page_data}  # type: ignore
+            return {"data": page_data}
 
         return route
 
@@ -132,7 +129,6 @@ class CRUDRouter(CRUDGenerator[SCHEMA]):
             if not model:
                 raise NOT_FOUND
             data = model.model_dump()
-            db.close()
             return {"data": data}  # type: ignore
 
         return route
@@ -169,7 +165,6 @@ class CRUDRouter(CRUDGenerator[SCHEMA]):
                 for task in self.create_background:
                     background_tasks.add_task(task, db_model, request, current_user)
 
-            db.close()
             return {"data": data}  # type: ignore
 
         return route
@@ -199,7 +194,6 @@ class CRUDRouter(CRUDGenerator[SCHEMA]):
             if update_background:
                 for task in update_background:
                     background_tasks.add_task(task, data, request, current_user)
-            db.close()
             return {"data": data}  # type: ignore
 
         return route
@@ -222,7 +216,6 @@ class CRUDRouter(CRUDGenerator[SCHEMA]):
             if tag_delete_one_background:
                 for task in tag_delete_one_background:
                     background_tasks.add_task(task, data, request, current_user)
-            db.close()
             return {"data": data}  # type: ignore
 
         return route
@@ -249,7 +242,6 @@ class CRUDRouter(CRUDGenerator[SCHEMA]):
                     background_tasks.add_task(
                         task, record.model_dump(), request, current_user
                     )
-            db.close()
             return {"data": "success"}  # type: ignore
 
         return route
@@ -271,7 +263,6 @@ class CRUDRouter(CRUDGenerator[SCHEMA]):
             sql = sql_generator.query_sql
             count = db.exec(sql).one()
 
-            db.close()
             return {"data": count}  # type: ignore
 
         return route
@@ -287,7 +278,6 @@ class CRUDRouter(CRUDGenerator[SCHEMA]):
             db.commit()
             sql = select(self.db_model).where(self.db_model.id == item_id)
             data = db.scalars(sql).first().model_dump()
-            db.close()
             return {"data": data}  # type: ignore
 
         return route

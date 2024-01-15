@@ -1,14 +1,11 @@
 import traceback
-from typing import Any, Callable, Dict, List, Type, Optional, Union, Literal
-from annotated_types import T
+from typing import Any, Callable, Dict, List, Optional, Literal
 
 from fastapi import BackgroundTasks
 from fastapi import Depends, HTTPException
 from fastapi import Request
-from fastapi import Query
 
 from fastapi_pagination.ext.sqlalchemy import paginate as fastapi_paginate
-from pydantic import BaseModel
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.declarative import DeclarativeMeta as Model
 from sqlmodel import select, update, delete
@@ -21,10 +18,10 @@ from ._utils import (
     create_filter_model_from_db_model_include_columns,
     QuerySqlGenerator,
 )
-from .curd_types import QueryAllParamsModel,CurrentUserPair,CustomParams
+from .curd_types import QueryAllParamsModel, CurrentUserPair, CustomParams
+
 CALLABLE = Callable[..., Model]
 CALLABLE_LIST = Callable[..., List[Model]]
-
 
 
 class CRUDRouter(CRUDGenerator[SCHEMA]):
@@ -64,6 +61,7 @@ class CRUDRouter(CRUDGenerator[SCHEMA]):
             route_dependencies=route_dependencies,
             **kwargs
         )
+
     # 生成查询参数
     def generate_filter_model(self):
         if not self.filter_cfg:
@@ -250,7 +248,6 @@ class CRUDRouter(CRUDGenerator[SCHEMA]):
             filter_data: self.filter_model = None,
             db: AsyncSession = Depends(self.session),
         ):
-
             sql_generator = QuerySqlGenerator(
                 model=self.schema,
                 user_query_data=filter_data.model_dump() if filter_data else None,

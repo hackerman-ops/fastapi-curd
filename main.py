@@ -1,5 +1,4 @@
 from fastapi import FastAPI
-from fastapi.routing import APIRoute
 from src.pymodels.company_curd import company_router
 from fastapi import Request, status
 from fastapi.exceptions import HTTPException
@@ -7,6 +6,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from conf.base_model import ResponseStatusTypeCode
 import logging
+
 logger = logging.getLogger(__name__)
 
 
@@ -14,6 +14,7 @@ app = FastAPI()
 
 
 app.include_router(company_router)
+
 
 @app.exception_handler(HTTPException)
 async def http_exception_handler(_, exc):
@@ -27,9 +28,9 @@ async def http_exception_handler(_, exc):
         },
     )
 
+
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: Request, exc: RequestValidationError):
-
     args = exc.args
     error_columns = []
     for arg in args:
@@ -64,9 +65,8 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
         content=content, status_code=status.HTTP_422_UNPROCESSABLE_ENTITY
     )
 
+
 if __name__ == "__main__":
     import uvicorn
 
     uvicorn.run(app, host="0.0.0.0", port=8000)
-
-

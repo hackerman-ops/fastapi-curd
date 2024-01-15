@@ -9,8 +9,8 @@ from fastapi_pagination import Page
 from .curd_types import T, DEPENDENCIES, Sequence
 from ._utils import schema_factory
 from .curd_types import DBSchemas, RouteDependencies, ResponseStruct
-NOT_FOUND = HTTPException(404, "Item not found")
 
+NOT_FOUND = HTTPException(404, "Item not found")
 
 
 class CRUDGenerator(Generic[T], APIRouter, ABC):
@@ -25,7 +25,6 @@ class CRUDGenerator(Generic[T], APIRouter, ABC):
         route_dependencies: RouteDependencies,
         prefix: Optional[str] = None,
         tags: Optional[List[str]] = None,
-        
         **kwargs: Any,
     ) -> None:
         self.schema = schemas.db_schema
@@ -139,7 +138,11 @@ class CRUDGenerator(Generic[T], APIRouter, ABC):
                 error_responses=[NOT_FOUND],
             )
         if tag_delete_one_route:
-            tag_delete_one_route = tag_delete_one_route if isinstance(tag_delete_one_route, Sequence) else dependencies
+            tag_delete_one_route = (
+                tag_delete_one_route
+                if isinstance(tag_delete_one_route, Sequence)
+                else dependencies
+            )
             self._add_api_route(
                 "/tag_delete/{item_id}",
                 self._tag_delete_one(),
@@ -151,7 +154,9 @@ class CRUDGenerator(Generic[T], APIRouter, ABC):
             )
         count_route = route_dependencies.count_route
         if count_route:
-            count_route = count_route if isinstance(count_route, Sequence) else dependencies
+            count_route = (
+                count_route if isinstance(count_route, Sequence) else dependencies
+            )
             self._add_api_route(
                 "/count",
                 self._count(),
@@ -162,7 +167,11 @@ class CRUDGenerator(Generic[T], APIRouter, ABC):
             )
         change_status_route = route_dependencies.change_status_route
         if change_status_route:
-            change_status_route = change_status_route if isinstance(change_status_route, Sequence) else dependencies
+            change_status_route = (
+                change_status_route
+                if isinstance(change_status_route, Sequence)
+                else dependencies
+            )
             self._add_api_route(
                 "/{item_id}/change_status",
                 self._change_status(),
@@ -171,6 +180,7 @@ class CRUDGenerator(Generic[T], APIRouter, ABC):
                 summary="上架下架",
                 dependencies=change_status_route,
             )
+
     def _add_api_route(
         self,
         path: str,
@@ -251,9 +261,11 @@ class CRUDGenerator(Generic[T], APIRouter, ABC):
     @abstractmethod
     def _tag_delete_one(self, *args: Any, **kwargs: Any) -> Callable[..., Any]:
         raise NotImplementedError
+
     @abstractmethod
     def _count(self, *args: Any, **kwargs: Any) -> Callable[..., Any]:
         raise NotImplementedError
+
     @abstractmethod
     def _change_status(self, *args: Any, **kwargs: Any) -> Callable[..., Any]:
         raise NotImplementedError
@@ -268,5 +280,3 @@ class CRUDGenerator(Generic[T], APIRouter, ABC):
     @staticmethod
     def get_routes() -> List[str]:
         return ["get_all", "create", "get_one", "update", "delete_one"]
-
-    
