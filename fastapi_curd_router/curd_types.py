@@ -68,6 +68,7 @@ class RouteDependencies(BaseModel):
     tag_delete_one_route: Union[bool, list] = True
     count_route: Union[bool, list] = True
     change_status_route: Union[bool, list] = True
+    export_route: Union[bool, list] = True
 
 
 class RouteBackgrounds(BaseModel):

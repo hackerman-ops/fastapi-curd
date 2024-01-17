@@ -180,7 +180,18 @@ class CRUDGenerator(Generic[T], APIRouter, ABC):
                 summary="上架下架",
                 dependencies=change_status_route,
             )
-
+        if export_route := route_dependencies.export_route:
+            export_route = (
+                export_route if isinstance(export_route, Sequence) else dependencies
+            )
+            self._add_api_route(
+                "/export",
+                self._export(),
+                methods=["POST"],
+                response_model=ResponseStruct,
+                summary="导出",
+                dependencies=export_route,
+            )
     def _add_api_route(
         self,
         path: str,
@@ -268,6 +279,10 @@ class CRUDGenerator(Generic[T], APIRouter, ABC):
 
     @abstractmethod
     def _change_status(self, *args: Any, **kwargs: Any) -> Callable[..., Any]:
+        raise NotImplementedError
+
+    @abstractmethod
+    def _export(self, *args: Any, **kwargs: Any) -> Callable[..., Any]:
         raise NotImplementedError
 
     @abstractmethod

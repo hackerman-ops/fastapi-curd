@@ -40,7 +40,7 @@ company_router = async_curd_router.CRUDRouter(
     route_backgrounds=RouteBackgrounds(),
     route_dependencies=RouteDependencies(common_dependencies=[]),
     tags=["company"],
-    db=get_session,
+    session=get_session,
     current_user_pair=CurrentUserPair(user_model=User, auth_info_func=get_current_user),
     query_params=QueryAllParamsModel(filter_cfg=filter_cfg),
 )

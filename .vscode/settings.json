@@ -1,15 +1,3 @@
 {
-    "sqltools.connections": [
-        {
-            "previewLimit": 50,
-            "driver": "SQLite",
-            "database": "database.db",
-            "name": "ss"
-        }
-    ],
-    "sqltools.useNodeRuntime": true,
-    "python.linting.pylintEnabled": true,
-    "python.linting.pylintArgs": [
-    "--enable=W0614"
-]
+
 }

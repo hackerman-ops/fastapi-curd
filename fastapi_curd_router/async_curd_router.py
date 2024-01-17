@@ -4,7 +4,8 @@ from typing import Any, Callable, Dict, List, Optional, Literal
 from fastapi import BackgroundTasks
 from fastapi import Depends, HTTPException
 from fastapi import Request
-
+from openpyxl import Workbook
+from fastapi.responses import FileResponse
 from fastapi_pagination.ext.sqlalchemy import paginate as fastapi_paginate
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.declarative import DeclarativeMeta as Model
@@ -279,3 +280,42 @@ class CRUDRouter(CRUDGenerator[SCHEMA]):
             return {"data": data}  # type: ignore
 
         return route
+
+    def _export(self, *args: Any, **kwargs: Any) -> CALLABLE:
+        async def route(
+            path_name: str,
+            filter_data: self.filter_model = None,
+            db: AsyncSession = Depends(self.session),
+        ):
+            sql_generator = QuerySqlGenerator(
+                model=self.schema,
+                user_query_data=filter_data.model_dump() if filter_data else None,
+                default_query_data=self.default_query_kwargs,
+                user_sort_data={},
+                default_sort_data={},
+                filter_setting=self.filter_cfg,
+            )
+            sql_generator.generate_query_record_sql()
+            sql = sql_generator.query_sql
+            result = await db.exec(sql)
+            data_list = [
+                self.schema.model_validate(item).model_dump()
+                for item in result.all()
+            ]
+            self.export_to_excel(path_name,data_list)
+            return FileResponse(f"tmp/{path_name}.xlsx")  # type: ignore
+
+        return route
+
+    # 写一个函数，生成一个excel表格存储 data_list 列表
+    def export_to_excel(self,path_name,data_list):
+        """generate an excel file and store data_list in it.
+
+        Args:
+            data_list (_type_): _description_
+        """
+        webbook = Workbook('path_name.xlsx')
+        sheet = webbook.active
+        for row in data_list:
+            sheet.append(row)
+        webbook.save('path_name.xlsx')
