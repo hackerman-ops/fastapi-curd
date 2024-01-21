@@ -6,6 +6,8 @@ from fastapi import Depends, HTTPException
 from fastapi import Request
 
 from fastapi_pagination.ext.sqlalchemy import paginate as fastapi_paginate
+from openpyxl import Workbook
+from pydantic import create_model
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.declarative import DeclarativeMeta as Model
 from sqlmodel import select, update, delete
@@ -19,13 +21,14 @@ from .curd_types import (
     QueryAllParamsModel,
     CurrentUserPair,
     CustomParams,
+    QueryParams,
 )
 from ._utils import (
     QuerySqlGenerator,
     get_pk_type,
     create_filter_model_from_db_model_include_columns,
 )
-from sqlmodel.ext.asyncio.session import AsyncSession
+from sqlmodel import Session
 
 CALLABLE = Callable[..., Model]
 CALLABLE_LIST = Callable[..., List[Model]]
@@ -35,14 +38,14 @@ class CRUDRouter(CRUDGenerator[SCHEMA]):
     def __init__(
         self,
         schemas: DBSchemas,
-        db: AsyncSession,
+        session: Session,
         route_dependencies: RouteDependencies,
         route_backgrounds: RouteBackgrounds,
         query_params: QueryAllParamsModel,
         prefix: Optional[str] = None,
         tags: Optional[List[str]] = None,
         current_user_pair: CurrentUserPair = None,
-        **kwargs: Any
+        **kwargs: Any,
     ) -> None:
         self.user_model = current_user_pair.user_model
         auth_info_func = current_user_pair.auth_info_func
@@ -52,12 +55,13 @@ class CRUDRouter(CRUDGenerator[SCHEMA]):
         self.schema = db_model
         self.create_schema = schemas.create_schema
         self.update_schema = schemas.update_schema
-        self.db_func = db
+        self.db_func = session
         self.route_backgrounds = route_backgrounds
         self.pk: str = db_model.__table__.primary_key.columns.keys()[0]
         self.pk_type: type = get_pk_type(db_model, self.pk)
         self.filter_cfg = query_params.filter_cfg
         self.filter_model = None
+        self.query_model = QueryParams
         self.generate_filter_model()
         self.default_query_kwargs = query_params.default_query_kwargs
         self.default_sort_kwargs = query_params.default_sort_kwargs or {}
@@ -66,7 +70,7 @@ class CRUDRouter(CRUDGenerator[SCHEMA]):
             prefix=prefix or db_model.__tablename__,
             tags=tags,
             route_dependencies=route_dependencies,
-            **kwargs
+            **kwargs,
         )
 
     # 生成查询参数
@@ -87,14 +91,19 @@ class CRUDRouter(CRUDGenerator[SCHEMA]):
             include=mapping_list,
             is_update=True,
         )
+        self.query_model = create_model(
+            f"{self.schema.__name__}Filter",
+            filter=(self.filter_model, ...),
+            __base__=QueryParams,
+        )
 
     def _get_all(self, *args: Any, **kwargs: Any) -> CALLABLE_LIST:
         def route(
-            filter_data: self.filter_model = None,
-            pagination: CustomParams = Depends(),
-            sorter_data: Dict[str, str] = {},
+            query_params: self.query_model,
             db: session = Depends(self.db_func),
         ) -> List[Model]:
+            filter_data = query_params.filter
+            sorter_data = query_params.sorter
             sql_generator = QuerySqlGenerator(
                 model=self.schema,
                 user_query_data=filter_data.model_dump() if filter_data else None,
@@ -105,7 +114,8 @@ class CRUDRouter(CRUDGenerator[SCHEMA]):
             )
             sql_generator.generate_query_record_sql()
             sql = sql_generator.query_sql
-
+            pagination = query_params.pagination
+            pagination = CustomParams(page=pagination.page, size=pagination.size)
             page_data = fastapi_paginate(
                 query=sql,
                 params=pagination,  # type: ignore
@@ -281,3 +291,43 @@ class CRUDRouter(CRUDGenerator[SCHEMA]):
             return {"data": data}  # type: ignore
 
         return route
+
+
+    def _export(self, *args: Any, **kwargs: Any) -> CALLABLE:
+        def route(
+            path_name: str,
+            filter_data: self.filter_model = None,
+            db: session = Depends(self.db_func),
+        ):
+            sql_generator = QuerySqlGenerator(
+                model=self.schema,
+                user_query_data=filter_data.model_dump() if filter_data else None,
+                default_query_data=self.default_query_kwargs,
+                user_sort_data={},
+                default_sort_data={},
+                filter_setting=self.filter_cfg,
+            )
+            sql_generator.generate_query_record_sql()
+            sql = sql_generator.query_sql
+            result = db.exec(sql)
+            data_list = [
+                self.schema.model_validate(item).model_dump()
+                for item in result.all()
+            ]
+            self.export_to_excel(path_name,data_list)
+            return FileResponse(f"tmp/{path_name}.xlsx")  # type: ignore
+
+        return route
+
+    # 写一个函数，生成一个excel表格存储 data_list 列表
+    def export_to_excel(self,path_name,data_list):
+        """generate an excel file and store data_list in it.
+
+        Args:
+            data_list (_type_): _description_
+        """
+        webbook = Workbook('path_name.xlsx')
+        sheet = webbook.active
+        for row in data_list:
+            sheet.append(row)
+        webbook.save('path_name.xlsx')

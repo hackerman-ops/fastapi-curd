@@ -57,7 +57,7 @@ class CRUDGenerator(Generic[T], APIRouter, ABC):
                 get_all_route if isinstance(get_all_route, Sequence) else dependencies
             )
             self._add_api_route(
-                "/get_all",
+                "/query",
                 self._get_all(),
                 methods=["POST"],
                 response_model=create_model(

@@ -7,6 +7,7 @@ from fastapi import Request
 from openpyxl import Workbook
 from fastapi.responses import FileResponse
 from fastapi_pagination.ext.sqlalchemy import paginate as fastapi_paginate
+from pydantic import create_model
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.declarative import DeclarativeMeta as Model
 from sqlmodel import select, update, delete
@@ -19,7 +20,8 @@ from ._utils import (
     create_filter_model_from_db_model_include_columns,
     QuerySqlGenerator,
 )
-from .curd_types import QueryAllParamsModel, CurrentUserPair, CustomParams
+from .curd_types import QueryAllParamsModel, CurrentUserPair, CustomParams, QueryParams
+
 
 CALLABLE = Callable[..., Model]
 CALLABLE_LIST = Callable[..., List[Model]]
@@ -36,7 +38,7 @@ class CRUDRouter(CRUDGenerator[SCHEMA]):
         prefix: Optional[str] = None,
         tags: Optional[List[str]] = None,
         current_user_pair: CurrentUserPair = None,
-        **kwargs: Any
+        **kwargs: Any,
     ) -> None:
         self.user_model = current_user_pair.user_model
         auth_info_func = current_user_pair.auth_info_func
@@ -47,6 +49,7 @@ class CRUDRouter(CRUDGenerator[SCHEMA]):
         self.create_schema = schemas.create_schema
         self.update_schema = schemas.update_schema
         self.session = session
+        self.query_model = QueryParams
         self.route_backgrounds = route_backgrounds
         self.pk: str = db_model.__table__.primary_key.columns.keys()[0]
         self.pk_type: type = get_pk_type(db_model, self.pk)
@@ -60,7 +63,7 @@ class CRUDRouter(CRUDGenerator[SCHEMA]):
             prefix=prefix or db_model.__tablename__,
             tags=tags,
             route_dependencies=route_dependencies,
-            **kwargs
+            **kwargs,
         )
 
     # 生成查询参数
@@ -81,14 +84,18 @@ class CRUDRouter(CRUDGenerator[SCHEMA]):
             include=mapping_list,
             is_update=True,
         )
-
+        self.query_model = create_model(
+            f"{self.schema.__name__}Filter",
+            filter=(self.filter_model, ...),
+            __base__=QueryParams,
+        )
     def _get_all(self, *args: Any, **kwargs: Any) -> CALLABLE_LIST:
         async def route(
-            filter_data: self.filter_model = None,
-            pagination: CustomParams = Depends(),
-            sorter_data: Dict[str, Literal["ascend", "deascend"]] = {},
+            query_params: self.query_model,
             db: AsyncSession = Depends(self.session),
         ) -> List[Model]:
+            filter_data = query_params.filter
+            sorter_data = query_params.sorter
             sql_generator = QuerySqlGenerator(
                 model=self.schema,
                 user_query_data=filter_data.model_dump() if filter_data else None,
@@ -99,7 +106,8 @@ class CRUDRouter(CRUDGenerator[SCHEMA]):
             )
             sql_generator.generate_query_record_sql()
             sql = sql_generator.query_sql
-
+            pagination = query_params.pagination
+            pagination = CustomParams(page=pagination.page, size=pagination.size)
             page_data = await fastapi_paginate(
                 query=sql,
                 params=pagination,  # type: ignore
@@ -299,23 +307,22 @@ class CRUDRouter(CRUDGenerator[SCHEMA]):
             sql = sql_generator.query_sql
             result = await db.exec(sql)
             data_list = [
-                self.schema.model_validate(item).model_dump()
-                for item in result.all()
+                self.schema.model_validate(item).model_dump() for item in result.all()
             ]
-            self.export_to_excel(path_name,data_list)
+            self.export_to_excel(path_name, data_list)
             return FileResponse(f"tmp/{path_name}.xlsx")  # type: ignore
 
         return route
 
     # 写一个函数，生成一个excel表格存储 data_list 列表
-    def export_to_excel(self,path_name,data_list):
+    def export_to_excel(self, path_name, data_list):
         """generate an excel file and store data_list in it.
 
         Args:
             data_list (_type_): _description_
         """
-        webbook = Workbook('path_name.xlsx')
+        webbook = Workbook("path_name.xlsx")
         sheet = webbook.active
         for row in data_list:
             sheet.append(row)
-        webbook.save('path_name.xlsx')
+        webbook.save("path_name.xlsx")

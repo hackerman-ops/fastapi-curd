@@ -1,4 +1,4 @@
-from typing import Dict, Type, TypeVar, Optional, Sequence, Union
+from typing import Dict, Literal, Type, TypeVar, Optional, Sequence, Union
 
 from fastapi.params import Depends
 from pydantic import BaseModel
@@ -106,3 +106,13 @@ class QueryAllParamsModel(BaseModel):
 class CurrentUserPair(BaseModel):
     user_model: Type[T]
     auth_info_func: Callable
+
+class PaginationParams(BaseModel):
+    page: int = 1
+    size: int = 50
+
+class QueryParams(BaseModel):
+    pagination: PaginationParams
+    filter: Optional[dict] = None
+    sorter: Optional[Dict[str, Literal["ascend", "descend"]]] = None
+
