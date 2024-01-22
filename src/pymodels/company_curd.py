@@ -1,12 +1,12 @@
 from pydantic import BaseModel
 from db_manager.fastapi_curd_router.router_instance import CRUDRouter
-from db_manager.db_models import Company
+from models.db_models import Company
 from db_manager.fastapi_curd_router.curd_types import (
     DBSchemas,
     RouteBackgrounds,
     RouteDependencies,
 )
-from api_models.api_models import CompanyModelCreate, CompanyModelupdate
+from models.api_models.api_models import CompanyModelCreate, CompanyModelupdate
 
 from db_manager.fastapi_curd_router.curd_types import FilterModel
 from db_manager.fastapi_curd_router.curd_types import QueryAllParamsModel

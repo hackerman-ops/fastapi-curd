@@ -1,7 +1,7 @@
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from sqlmodel import select
-from db_manager.db_models import Company
+from models.db_models import Company
 from db_manager.async_engine import engine
 from db_manager.async_engine import AsyncSession
 from sqlalchemy import delete, update
