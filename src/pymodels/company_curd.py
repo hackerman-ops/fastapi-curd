@@ -1,17 +1,16 @@
 from pydantic import BaseModel
-from fastapi_curd_router import curd_router
+from db_manager.fastapi_curd_router.router_instance import CRUDRouter
 from db_manager.db_models import Company
-from db_manager.async_engine import get_session
-from fastapi_curd_router.curd_types import (
+from db_manager.fastapi_curd_router.curd_types import (
     DBSchemas,
     RouteBackgrounds,
     RouteDependencies,
 )
-from api_model_manager.api_models import CompanyModelCreate, CompanyModelupdate
+from api_models.api_models import CompanyModelCreate, CompanyModelupdate
 
-from fastapi_curd_router.curd_types import FilterModel
-from fastapi_curd_router.async_curd_router import QueryAllParamsModel
-from fastapi_curd_router.async_curd_router import CurrentUserPair
+from db_manager.fastapi_curd_router.curd_types import FilterModel
+from db_manager.fastapi_curd_router.curd_types import QueryAllParamsModel
+from db_manager.fastapi_curd_router.curd_types import CurrentUserPair
 
 
 class User(BaseModel):
@@ -30,7 +29,7 @@ filter_cfg = [
 ]
 
 
-company_router = curd_router.CRUDRouter(
+company_router = CRUDRouter(
     schemas=DBSchemas(
         db_schema=Company,
         create_schema=CompanyModelCreate,
@@ -39,7 +38,6 @@ company_router = curd_router.CRUDRouter(
     route_backgrounds=RouteBackgrounds(),
     route_dependencies=RouteDependencies(common_dependencies=[]),
     tags=["company"],
-    session=get_session,
     current_user_pair=CurrentUserPair(user_model=User, auth_info_func=get_current_user),
     query_params=QueryAllParamsModel(filter_cfg=filter_cfg),
 )

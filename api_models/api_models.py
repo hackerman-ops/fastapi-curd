@@ -1,6 +1,6 @@
 
 
-from api_model_manager.model_generator import create_model_from_db_model
+from api_models.model_generator import create_model_from_db_model
 
 from db_manager.db_models import Company
 

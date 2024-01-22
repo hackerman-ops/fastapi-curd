@@ -1,27 +1,35 @@
 import traceback
-from typing import Any, Callable, Dict, List, Optional, Literal
+from typing import Any, Callable, Dict, List, Optional
 
 from fastapi import BackgroundTasks
 from fastapi import Depends, HTTPException
 from fastapi import Request
-from openpyxl import Workbook
-from fastapi.responses import FileResponse
+from sqlmodel import Session
+
 from fastapi_pagination.ext.sqlalchemy import paginate as fastapi_paginate
+from openpyxl import Workbook
 from pydantic import create_model
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.declarative import DeclarativeMeta as Model
 from sqlmodel import select, update, delete
-from sqlmodel.ext.asyncio.session import AsyncSession
+from db_manager.sync_engine import get_session
 from ._base import CRUDGenerator, NOT_FOUND
 from .curd_types import PYDANTIC_SCHEMA as SCHEMA
-from .curd_types import DBSchemas, RouteBackgrounds, RouteDependencies
+from .curd_types import (
+    DBSchemas,
+    RouteBackgrounds,
+    RouteDependencies,
+    QueryAllParamsModel,
+    CurrentUserPair,
+    CustomParams,
+    QueryParams,
+)
 from ._utils import (
+    QuerySqlGenerator,
     get_pk_type,
     create_filter_model_from_db_model_include_columns,
-    QuerySqlGenerator,
 )
-from .curd_types import QueryAllParamsModel, CurrentUserPair, CustomParams, QueryParams
-
+from sqlmodel import Session
 
 CALLABLE = Callable[..., Model]
 CALLABLE_LIST = Callable[..., List[Model]]
@@ -31,7 +39,6 @@ class CRUDRouter(CRUDGenerator[SCHEMA]):
     def __init__(
         self,
         schemas: DBSchemas,
-        session: AsyncSession,
         route_dependencies: RouteDependencies,
         route_backgrounds: RouteBackgrounds,
         query_params: QueryAllParamsModel,
@@ -48,13 +55,13 @@ class CRUDRouter(CRUDGenerator[SCHEMA]):
         self.schema = db_model
         self.create_schema = schemas.create_schema
         self.update_schema = schemas.update_schema
-        self.session = session
-        self.query_model = QueryParams
+        self.db_func = get_session
         self.route_backgrounds = route_backgrounds
         self.pk: str = db_model.__table__.primary_key.columns.keys()[0]
         self.pk_type: type = get_pk_type(db_model, self.pk)
         self.filter_cfg = query_params.filter_cfg
         self.filter_model = None
+        self.query_model = QueryParams
         self.generate_filter_model()
         self.default_query_kwargs = query_params.default_query_kwargs
         self.default_sort_kwargs = query_params.default_sort_kwargs or {}
@@ -89,10 +96,11 @@ class CRUDRouter(CRUDGenerator[SCHEMA]):
             filter=(self.filter_model, ...),
             __base__=QueryParams,
         )
+
     def _get_all(self, *args: Any, **kwargs: Any) -> CALLABLE_LIST:
-        async def route(
+        def route(
             query_params: self.query_model,
-            db: AsyncSession = Depends(self.session),
+            db: Session = Depends(self.db_func),
         ) -> List[Model]:
             filter_data = query_params.filter
             sorter_data = query_params.sorter
@@ -108,7 +116,7 @@ class CRUDRouter(CRUDGenerator[SCHEMA]):
             sql = sql_generator.query_sql
             pagination = query_params.pagination
             pagination = CustomParams(page=pagination.page, size=pagination.size)
-            page_data = await fastapi_paginate(
+            page_data = fastapi_paginate(
                 query=sql,
                 params=pagination,  # type: ignore
                 conn=db,  # type: ignore
@@ -118,17 +126,16 @@ class CRUDRouter(CRUDGenerator[SCHEMA]):
                 for item in page_data.items
             ]
             page_data.items = data_list
-            return {"data": page_data}  # type: ignore
+            return {"data": page_data}
 
         return route
 
     def _get_one(self, *args: Any, **kwargs: Any) -> CALLABLE:
-        async def route(
-            item_id: self.pk_type, db: AsyncSession = Depends(self.session)  # type: ignore
+        def route(
+            item_id: self.pk_type, db: Session = Depends(self.db_func)  # type: ignore
         ):
             sql = select(self.db_model).where(self.db_model.id == item_id)
-            result = await db.exec(sql)
-            model = result.scalars().first()
+            model = db.scalars(sql).first()
             if not model:
                 raise NOT_FOUND
             data = model.model_dump()
@@ -137,11 +144,11 @@ class CRUDRouter(CRUDGenerator[SCHEMA]):
         return route
 
     def _create(self, *args: Any, **kwargs: Any) -> CALLABLE:
-        async def route(
+        def route(
             model: self.create_schema,  # type: ignore
             request: Request,
             background_tasks: BackgroundTasks,
-            db: AsyncSession = Depends(self.session),
+            db: Session = Depends(self.db_func),
             current_user: self.user_model = self.auth_info,
         ):
             self.create_schema.model_validate(model)
@@ -150,11 +157,11 @@ class CRUDRouter(CRUDGenerator[SCHEMA]):
             db_model = self.db_model(**create_data)
             print("======start=====")
             try:
-                await db.add(db_model)
-                await db.commit()
+                db.add(db_model)
+                db.commit()
             except IntegrityError as e:
                 traceback.print_exc()
-                await db.rollback()
+                db.rollback()
                 raise HTTPException(422, "Key already exists")
             print("======end=======")
             db.refresh(db_model)
@@ -173,26 +180,25 @@ class CRUDRouter(CRUDGenerator[SCHEMA]):
         return route
 
     def _update(self, *args: Any, **kwargs: Any) -> CALLABLE:
-        async def route(
+        def route(
             item_id: self.pk_type,  # type: ignore
             model: self.update_schema,  # type: ignore
             request: Request,
             background_tasks: BackgroundTasks,
-            db: AsyncSession = Depends(self.session),
+            db: Session = Depends(self.db_func),
             current_user: self.user_model = self.auth_info,
         ):
             sql = (
                 update(self.db_model).filter_by(id=item_id).values(**model.model_dump())
             )
             try:
-                await db.exec(sql)
-                await db.commit()
+                db.exec(sql)
+                db.commit()
             except IntegrityError as e:
-                await db.rollback()
+                db.rollback()
                 self._raise(e)
             sql = select(self.db_model).where(self.db_model.id == item_id)
-            result = await db.exec(sql)
-            data = result.scalars().first().model_dump()
+            data = db.scalars(sql).first().model_dump()
             update_background = self.route_backgrounds.update_route
 
             if update_background:
@@ -203,19 +209,18 @@ class CRUDRouter(CRUDGenerator[SCHEMA]):
         return route
 
     def _tag_delete_one(self, *args: Any, **kwargs: Any) -> CALLABLE:
-        async def route(
+        def route(
             item_id: self.pk_type,  # type: ignore
             request: Request,
             background_tasks: BackgroundTasks,
-            db: AsyncSession = Depends(self.session),
+            db: Session = Depends(self.db_func),
             current_user: self.user_model = self.auth_info,
         ):
             sql = update(self.db_model).filter_by(id=item_id).values(deleted=True)
-            await db.exec(sql)
-            await db.commit()
+            db.exec(sql)
+            db.commit()
             sql = select(self.db_model).where(self.db_model.id == item_id)
-            result = await db.exec(sql)
-            data = result.scalars().first().model_dump()
+            data = db.scalars(sql).first().model_dump()
             tag_delete_one_background = self.route_backgrounds.tag_delete_one_route
 
             if tag_delete_one_background:
@@ -226,21 +231,20 @@ class CRUDRouter(CRUDGenerator[SCHEMA]):
         return route
 
     def _delete_one(self, *args: Any, **kwargs: Any) -> CALLABLE:
-        async def route(
+        def route(
             item_id: self.pk_type,  # type: ignore
             request: Request,
             background_tasks: BackgroundTasks,
             current_user: self.user_model = self.auth_info,
-            db: AsyncSession = Depends(self.session),  # type: ignore
+            db: Session = Depends(self.db_func),  # type: ignore
         ):
             sql = select(self.db_model).filter_by(id=item_id)
-            result = await db.exec(sql)
-            record = result.scalars().first()
+            record = db.scalars(sql).first()
             if not record:
                 raise HTTPException(404, "Not found")
             statement = delete(self.db_model).filter_by(id=item_id)
-            await db.exec(statement)
-            await db.commit()
+            db.exec(statement)
+            db.commit()
             delete_one_background = self.route_backgrounds.delete_one_route
 
             if delete_one_background:
@@ -253,10 +257,10 @@ class CRUDRouter(CRUDGenerator[SCHEMA]):
         return route
 
     def _count(self, *args: Any, **kwargs: Any) -> CALLABLE:
-        async def route(
+        def route(
             filter_data: self.filter_model = None,
-            db: AsyncSession = Depends(self.session),
-        ):
+            db: Session = Depends(self.db_func),
+        ) -> List[Model]:
             sql_generator = QuerySqlGenerator(
                 model=self.schema,
                 user_query_data=filter_data.model_dump() if filter_data else None,
@@ -267,33 +271,33 @@ class CRUDRouter(CRUDGenerator[SCHEMA]):
             )
             sql_generator.generate_count_sql()
             sql = sql_generator.query_sql
-            count = await db.exec(sql)
-            count = count.one()
+            count = db.exec(sql).one()
+
             return {"data": count}  # type: ignore
 
         return route
 
     def _change_status(self, *args: Any, **kwargs: Any) -> CALLABLE:
-        async def route(
+        def route(
             item_id: self.pk_type,  # type: ignore
-            status: Literal[False, True],
-            db: AsyncSession = Depends(self.session),
+            status: bool,
+            db: Session = Depends(self.db_func),
         ):
             sql = update(self.db_model).filter_by(id=item_id).values(disabled=status)
-            await db.exec(sql)
-            await db.commit()
+            db.exec(sql)
+            db.commit()
             sql = select(self.db_model).where(self.db_model.id == item_id)
-            result = await db.exec(sql)
-            data = result.scalars().first().model_dump()
+            data = db.scalars(sql).first().model_dump()
             return {"data": data}  # type: ignore
 
         return route
 
+
     def _export(self, *args: Any, **kwargs: Any) -> CALLABLE:
-        async def route(
+        def route(
             path_name: str,
             filter_data: self.filter_model = None,
-            db: AsyncSession = Depends(self.session),
+            db: Session = Depends(self.db_func),
         ):
             sql_generator = QuerySqlGenerator(
                 model=self.schema,
@@ -305,24 +309,25 @@ class CRUDRouter(CRUDGenerator[SCHEMA]):
             )
             sql_generator.generate_query_record_sql()
             sql = sql_generator.query_sql
-            result = await db.exec(sql)
+            result = db.exec(sql)
             data_list = [
-                self.schema.model_validate(item).model_dump() for item in result.all()
+                self.schema.model_validate(item).model_dump()
+                for item in result.all()
             ]
-            self.export_to_excel(path_name, data_list)
+            self.export_to_excel(path_name,data_list)
             return FileResponse(f"tmp/{path_name}.xlsx")  # type: ignore
 
         return route
 
     # 写一个函数，生成一个excel表格存储 data_list 列表
-    def export_to_excel(self, path_name, data_list):
+    def export_to_excel(self,path_name,data_list):
         """generate an excel file and store data_list in it.
 
         Args:
             data_list (_type_): _description_
         """
-        webbook = Workbook("path_name.xlsx")
+        webbook = Workbook('path_name.xlsx')
         sheet = webbook.active
         for row in data_list:
             sheet.append(row)
-        webbook.save("path_name.xlsx")
+        webbook.save('path_name.xlsx')

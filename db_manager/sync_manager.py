@@ -1,7 +1,7 @@
 
 from sqlmodel import select, Session
 from db_manager.db_models import Company
-from db_manager.engine import engine
+from db_manager.sync_engine import engine
 from sqlalchemy import delete, update
 
 
