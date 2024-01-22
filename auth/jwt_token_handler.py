@@ -2,7 +2,7 @@ from utils.fastapi_keycloak.keycloak_api_auth import keycloak_openid
 from utils.database import DBApi
 from migrations.models import Account
 from migrations.models import Company
-from conf.base_model import UserIdentity
+from schemas.base_schema import UserIdentity
 from conf.settings import backend_settings
 from fastapi import HTTPException, status
 from logging import get_logger

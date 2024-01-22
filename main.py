@@ -4,7 +4,7 @@ from fastapi import Request, status
 from fastapi.exceptions import HTTPException
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
-from conf.base_model import ResponseStatusTypeCode
+from schemas.base_schema import ResponseStatusTypeCode
 import logging
 
 logger = logging.getLogger(__name__)

@@ -18,8 +18,8 @@ from wechatpy.exceptions import WeChatOAuthException
 from auth import AuthBearer
 from auth import get_current_user
 from auth.jwt_token_handler import create_access_token
-from conf.base_model import ResponseStatusTypeCode
-from conf.base_model import ResponseStruct
+from schemas.base_schema import ResponseStatusTypeCode
+from schemas.base_schema import ResponseStruct
 from sql_model.models import ManagewechatPlatformAuth
 from src.wechat.db import ManagewechatPlatformAuthApi
 from src.wechat.db import UserModelApi

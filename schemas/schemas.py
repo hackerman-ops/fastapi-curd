@@ -1,4 +1,4 @@
-from models.api_models.model_generator import create_model_from_db_model
+from schemas.model_to_schema import create_model_from_db_model
 
 from models.db_models import Company
 

@@ -6,7 +6,7 @@ from db_manager.fastapi_curd_router.curd_types import (
     RouteBackgrounds,
     RouteDependencies,
 )
-from models.api_models.api_models import CompanyModelCreate, CompanyModelupdate
+from schemas.schemas import CompanyModelCreate, CompanyModelupdate
 
 from db_manager.fastapi_curd_router.curd_types import FilterModel
 from db_manager.fastapi_curd_router.curd_types import QueryAllParamsModel

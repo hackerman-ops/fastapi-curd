@@ -6,7 +6,7 @@ from fastapi import Depends, HTTPException, Request
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from auth.jwt_token_handler import get_user_info_from_token
-from conf.base_model import UserIdentity
+from schemas.base_schema import UserIdentity
 
 
 class AuthBearer(HTTPBearer):
