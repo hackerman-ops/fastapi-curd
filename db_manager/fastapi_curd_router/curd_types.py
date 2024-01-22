@@ -107,12 +107,13 @@ class CurrentUserPair(BaseModel):
     user_model: Type[T]
     auth_info_func: Callable
 
+
 class PaginationParams(BaseModel):
     page: int = 1
     size: int = 50
+
 
 class QueryParams(BaseModel):
     pagination: PaginationParams
     filter: Optional[dict] = None
     sorter: Optional[Dict[str, Literal["ascend", "descend"]]] = None
-

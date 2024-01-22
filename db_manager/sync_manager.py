@@ -1,4 +1,3 @@
-
 from sqlmodel import select, Session
 from db_manager.db_models import Company
 from db_manager.sync_engine import engine

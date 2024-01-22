@@ -89,6 +89,7 @@ class AsyncCRUDRouter(CRUDGenerator[SCHEMA]):
             filter=(self.filter_model, ...),
             __base__=QueryParams,
         )
+
     def _get_all(self, *args: Any, **kwargs: Any) -> CALLABLE_LIST:
         async def route(
             query_params: self.query_model,

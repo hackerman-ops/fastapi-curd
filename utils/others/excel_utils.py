@@ -4,7 +4,6 @@
 import openpyxl
 
 
-
 def generate_excel(data, file_name):
     wb = openpyxl.Workbook()
     ws = wb.active

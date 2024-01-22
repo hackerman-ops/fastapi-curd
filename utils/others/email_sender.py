@@ -56,6 +56,7 @@ class EmailSender:
                 f"Error sending email to {recipients} with subject {subject}: {e}"
             )
 
+
 # fastapi async send email
 async def send_email(email_sender: EmailSender, sender, recipients, subject, message):
     if isinstance(recipients, str):

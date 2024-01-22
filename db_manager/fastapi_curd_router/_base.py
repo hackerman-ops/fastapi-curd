@@ -192,6 +192,7 @@ class CRUDGenerator(Generic[T], APIRouter, ABC):
                 summary="导出",
                 dependencies=export_route,
             )
+
     def _add_api_route(
         self,
         path: str,

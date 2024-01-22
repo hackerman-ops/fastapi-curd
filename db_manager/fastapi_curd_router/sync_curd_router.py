@@ -292,7 +292,6 @@ class CRUDRouter(CRUDGenerator[SCHEMA]):
 
         return route
 
-
     def _export(self, *args: Any, **kwargs: Any) -> CALLABLE:
         def route(
             path_name: str,
@@ -311,23 +310,22 @@ class CRUDRouter(CRUDGenerator[SCHEMA]):
             sql = sql_generator.query_sql
             result = db.exec(sql)
             data_list = [
-                self.schema.model_validate(item).model_dump()
-                for item in result.all()
+                self.schema.model_validate(item).model_dump() for item in result.all()
             ]
-            self.export_to_excel(path_name,data_list)
+            self.export_to_excel(path_name, data_list)
             return FileResponse(f"tmp/{path_name}.xlsx")  # type: ignore
 
         return route
 
     # 写一个函数，生成一个excel表格存储 data_list 列表
-    def export_to_excel(self,path_name,data_list):
+    def export_to_excel(self, path_name, data_list):
         """generate an excel file and store data_list in it.
 
         Args:
             data_list (_type_): _description_
         """
-        webbook = Workbook('path_name.xlsx')
+        webbook = Workbook("path_name.xlsx")
         sheet = webbook.active
         for row in data_list:
             sheet.append(row)
-        webbook.save('path_name.xlsx')
+        webbook.save("path_name.xlsx")
