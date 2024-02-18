@@ -1,3 +1,4 @@
+from typing import Iterator
 from sqlmodel import create_engine
 from sqlmodel import Session
 
@@ -14,8 +15,7 @@ engine = create_engine(
 )
 
 
-def get_session():
-    return session
+def get_session() -> Iterator[Session]:
+    with Session(engine) as db, db.begin():
+        yield db
 
-
-session = Session(engine)

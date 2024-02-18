@@ -48,7 +48,7 @@ class AsyncCRUDRouter(CRUDGenerator[SCHEMA]):
         self.schema = db_model
         self.create_schema = schemas.create_schema
         self.update_schema = schemas.update_schema
-        self.session = AsyncSession
+        self.session = get_session
         self.query_model = QueryParams
         self.route_backgrounds = route_backgrounds
         self.pk: str = db_model.__table__.primary_key.columns.keys()[0]
