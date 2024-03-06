@@ -6,6 +6,7 @@ from sqlalchemy.sql.expression import func
 from .curd_types import T, PAGINATION, PYDANTIC_SCHEMA
 from .curd_types import FilterModel
 from sqlmodel import select
+from sqlalchemy import Select
 
 
 def create_filter_model_from_db_model_include_columns(
@@ -135,6 +136,7 @@ class QuerySqlGenerator:
     def __init__(
         self,
         model,
+        base_query: Select = None,
         user_query_data: dict = None,
         default_query_data: dict = None,
         filter_setting: list[FilterModel] = None,
@@ -151,6 +153,7 @@ class QuerySqlGenerator:
             default_sort_data (dict): 默认排序参数
         """
         self.model = model
+        self.base_query = base_query
         self.db_keys = model.model_fields.keys()
         # 有可能有非法字段，需要过滤
         # 输入字段和setting字段对比
@@ -198,8 +201,11 @@ class QuerySqlGenerator:
                 self.user_sort_data.pop(k, True)
 
     def get_base_query(self):
-        """获取基础查询"""
-        self.base_query = select(self.model)
+        """获取基础查询
+        base query 有可能是连表查
+        没有base query 就查单表
+        """
+        self.base_query = self.base_query if self.base_query else select(self.model)
 
     def generate_query_record_sql(self):
         """生成查询sql"""
@@ -209,6 +215,14 @@ class QuerySqlGenerator:
         self.get_base_query()
         self.generate_filter_sql()
         self.generate_sort_sql()
+
+    def generate_query_list_sql_with_no_sort(self):
+        """生成查询sql"""
+        # 去掉不合法字段
+        self.remove_user_illegal_filter_key()
+        self.remove_user_illegal_sort_key()
+        self.get_base_query()
+        self.generate_filter_sql()
 
     def generate_count_sql(self):
         self.remove_user_illegal_filter_key()
